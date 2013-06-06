@@ -1,2 +1,14 @@
+CRUD readme:
 
-Archivo readme
+Tarea del curso de Python avanzado de la UGR 
+a cargo de DiegoJMG apussapus@gmail.com
+
+Se trata de un programa para practicar las bases de datos MySQL y la programacion grafica con GTK en Python.
+
+El programa trabaja con una base de datos ultrasimple  de solo cinco elementos que es generada por el propio programa.
+
+Mediante los menus graficos de la ventana se pueden borrar, crear, actualizar y leer las entradas de la BD.
+
+NOTA 1: para activar alguna de las opciones de la ventana (pej.la de borrar) hay que clickarla dos veces.
+NOTA 2: por simplicidad la BD esta limitada a 5 registros
+
