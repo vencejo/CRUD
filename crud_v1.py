@@ -1,14 +1,37 @@
 #!/usr/python
 # -*- coding: utf-8 -*-
 
-#--------------------------------------
+#-------------------------------------------------------
+#-------------------------------------------------------
+# Tarea CRUD para el curso de Python Avanzado de la UGR
 # Autor: Diego J. Martinez Garcia
-#--------------------------------------
+#-------------------------------------------------------
+#-------------------------------------------------------
 
 import MySQLdb
 from gi.repository import Gtk
 import os, sys
 
+def creaDb( ):
+    """ Funcion encargada de Crear la base de datos, a la que hay que llamer la  primera vez que se ejecute el programa"""
+    try:
+        conexion = MySQLdb.connect(host='localhost', user='root' ,passwd = 'vencejo')
+        cursor = conexion.cursor()
+        query = 'CREATE DATABASE DBdeConan4'
+        cursor.execute(query)
+        query = "GRANT ALL ON DBdeConan4.* TO \"conan\"@\"localhost\" IDENTIFIED BY \"crom\""
+        cursor.execute(query)
+        query = 'USE DBdeConan4'
+        cursor.execute(query)
+        query = 'CREATE TABLE Victimas (id INT, Nombre VARCHAR(100),Profesion VARCHAR(100),Muerte VARCHAR(100))'
+        cursor.execute(query)
+        conexion.commit()
+    except:
+        print "Hay un problema con la creacion de la base de datos, puede que ya exista"
+       
+#--------------------------------------------------
+# Clase encargada de gestionar la Base de datos
+#--------------------------------------------------
 
 class Db:
 
@@ -18,10 +41,17 @@ class Db:
         self.conexion = MySQLdb.connect(host, user,passwd, db)
         # Creamos el cursor
         self.cursor = self.conexion.cursor()
-        # Inicializamos el id
-        self.id = 0
+        # Inicializamos la lista con los ids usados
+        self.ids_usados = []
         # Inicializamos la base de datos
         self.initDB()
+
+    def idUsado(self,identificador):
+        """ Devuelve True si el identificador esta en la lista de ids usados """
+        if identificador in self.ids_usados:
+            return True
+        else:
+            return False
         
     def initDB(self):
         """ Inicializa la base de datos introduciendole 5 registros"""
@@ -34,11 +64,11 @@ class Db:
         self.cursor.execute(query)
         query= "INSERT INTO Victimas (id,Nombre,Profesion,Muerte) VALUES (4, \"Serpiente\",\"Monstruo\",\"Destripado\");"
         self.cursor.execute(query)
-        query= "INSERT INTO Victimas (id,Nombre,Profesion,Muerte) VALUES (5, \"Scerdote maligno\",\"Monstruo\",\"Desmembramiento a espada\");"
+        query= "INSERT INTO Victimas (id,Nombre,Profesion,Muerte) VALUES (5, \"Sacerdote maligno\",\"Monstruo\",\"Desmembramiento a espada\");"
         self.cursor.execute(query)
        
         self.conexion.commit()
-
+        self.ids_usados = [1,2,3,4,5]
 
     def viewDB(self):
         """ Muestra todos los registros de la base de datos en pantalla """
@@ -51,23 +81,10 @@ class Db:
         while (registros):
             # recorremos la lista...
             for registro in registros:
-                # ... mprimimos el registro...
+                # ... imprimimos el registro...
                 print registro
             registros= self.cursor.fetchmany(2)
-
-    def consulta(self,query):
-        """ Realiza una consulta a la base de datos e imprime un mensaje en el terminal si no se puede realizar o si la
-            consulta no ha dado resultado"""
-        try:
-            result = self.cursor.execute(query)
-            self.conexion.commit()
-
-            if result == None:
-                print "La consulta {0} no ha dado resultado".format(query)
-        except:
-            print ""
-            print "Error: no se ha podido realizar la consulta: " + str(query)
-        
+       
     def deleteDB(self):
         """ Borra todos los registros de la base de datos """
 
@@ -76,48 +93,77 @@ class Db:
         self.conexion.commit()
 
     def crear(self,identificador, nombre,profesion,muerte):
-        """ Inserta una fila en la base de datos que tenga el cursor especificado """
+        """ Inserta una fila en la base de datos que tenga el cursor especificado, si el id ya estaba
+            creado devuelve False y no hace nada
+            Solo se permiten ids del 1 al 5 para mantener la sencillez de la base de datos"""
 
-        query = "INSERT INTO Victimas VALUES ({0}, \"{1}\", \"{2}\",\"{3}\"); ".format(str(identificador),nombre,profesion,muerte)
-        self.cursor.execute(query)
-        self.conexion.commit()
+        if identificador > 0 and identificador < 6 and not self.idUsado(identificador):
+            self.ids_usados.append(identificador)
+            query = "INSERT INTO Victimas VALUES ({0}, \"{1}\", \"{2}\",\"{3}\"); ".format(str(identificador),nombre,profesion,muerte)
+            self.cursor.execute(query)
+            self.conexion.commit()
+            return True
+        else:
+            return False
 
     def obtener(self, identificador):
         """ Muestra la fila de la tabla con el identificador dado, si el id no existe devuelve None """
 
         query = "SELECT * FROM Victimas WHERE id = {0} ;".format(str(identificador))
+
         self.cursor.execute(query)
         self.conexion.commit()
         registro = self.cursor.fetchone()
         return registro
-
+             
     def actualizar(self,identificador, nombre,profesion,muerte):
-        """ Actualiza un id de la tabla con nuevos valores de nombre, profesion y muerte """
-        
-        query = "UPDATE Victimas SET Nombre = \"{0}\", Profesion = \"{1}\", Muerte = \"{2}\" WHERE id = {3} ;".format(nombre,profesion,muerte,str(identificador))
-        self.consulta(query)
+        """ Actualiza un id de la tabla con nuevos valores de nombre, profesion y muerte si no se puede actualizar devuelve None"""
+
+        if self.idUsado(identificador):
+            query = "UPDATE Victimas SET Nombre = \"{0}\", Profesion = \"{1}\", Muerte = \"{2}\" WHERE id = {3} ;".format(nombre,profesion,muerte,str(identificador))
+            self.cursor.execute(query)
+            self.conexion.commit()
+            return True
+        else:
+            return False
 
     def borrar(self, identificador):
-        """ Borra la entrada con el id especificado """
-
-        query = "DELETE FROM Victimas WHERE id = {0} ;".format(str(identificador))
-        self.consulta(query)
-
-
+        """ Borra la entrada con el id especificado, si el id no existe devuelve None """
+        if self.idUsado(identificador):
+            self.ids_usados.pop(self.ids_usados.index(identificador))
+            query = "DELETE FROM Victimas WHERE id = {0} ;".format(str(identificador))
+            self.cursor.execute(query)
+            self.conexion.commit()
+            return True
+        else:
+            return False
         
+
+#--------------------------------------------------
+# Clase encargada de gestionar la interfaz grafica
+#--------------------------------------------------    
 class GUI:
 
     def __init__(self):
         self.builder = Gtk.Builder()
-        self.builder.add_from_file("crudv1.glade")
+        self.builder.add_from_file("crudv2.glade")
         self.handlers = {"onDeleteWindow": self.onDeleteWindow ,
                          "onOpenAbout": self.onOpenAbout,
-                         "onCloseAbout": self.onCloseAbout,}
-        
+                         "onCloseAbout": self.onCloseAbout,
+                         "onCrearActivate": self.onCrearActivate,
+                         "onObtenerActivate": self.onObtenerActivate,
+                         "onActualizarActivate": self.onActualizarActivate,
+                         "onBorrarActivate": self.onBorrarActivate,
+                                             
+                         }
         self.builder.connect_signals(self.handlers)
         self.window = self.builder.get_object("window1")
-        self.populate_entry()
         self.window.show_all()
+        # Establecemos la conexión con la base de datos
+        self.tabla = Db(host='localhost', user='conan',passwd='crom', db='DBdeConan4')
+        self.tabla.deleteDB()   #Borro cualquier tabla guardada previamente
+        self.tabla.initDB()     #Pueblo la tabla con unos valores iniciales
+        self.onPopulateVisor()  #Visualizo la BD
 
     def onDeleteWindow(self, *args):
         Gtk.main_quit
@@ -131,63 +177,127 @@ class GUI:
         about = self.builder.get_object("aboutdialog1")
         about.hide()
 
+    def onCrearActivate(self, *args):
+
+        #Conectamos con las etiquetas del GUI
+        identificador = self.builder.get_object("id")
+        nombre = self.builder.get_object("nombre")
+        profesion = self.builder.get_object("profesion")
+        muerte = self.builder.get_object("muerte")
+
+        #Cogemos los valores
+        valor_id = identificador.get_text()
+        valor_nombre= nombre.get_text()
+        valor_profesion = profesion.get_text()
+        valor_muerte = muerte.get_text()
+        #Consultamos la BD
+        resultado = self.tabla.crear(int(valor_id), valor_nombre,valor_profesion,valor_muerte)
+        # Informamos del proceso
+        info = self.builder.get_object("info")
+        if resultado == True:
+            info.set_label("ELEMENTO CREADO")
+            self.onPopulateVisor()
+        else:
+            info.set_label("ELEMENTO NO CREADO")
+
+
+    def onObtenerActivate(self, *args):
+
+        #Conectamos con las etiquetas del GUI
+        identificador = self.builder.get_object("id")
+        nombre = self.builder.get_object("nombre")
+        profesion = self.builder.get_object("profesion")
+        muerte = self.builder.get_object("muerte")
+        #Miramos el id a obtener
+        valor_id = identificador.get_text()
+        #Consultamos la BD
+        registro = self.tabla.obtener(valor_id)
+        print registro
+        # Informamos del proceso
+        info = self.builder.get_object("info")
+        if registro != None:
+            info.set_label("OBTENIENDO ELEMENTO %s" % valor_id)
+            #Escribimos la salida de cada elemento en la GUI
+            nombre.set_text(str(registro[1]))
+            profesion.set_text(str(registro[2]))
+            muerte.set_text(str(registro[3]))
+        else:
+            info.set_label("ELEMENTO NO ENCONTRADO")
+            nombre.set_text("---")
+            profesion.set_text("---")
+            muerte.set_text("---")
         
-    def get_datos(self):
+    def onActualizarActivate(self, *args):
+        #Conectamos con las etiquetas del GUI
+        identificador = self.builder.get_object("id")
+        nombre = self.builder.get_object("nombre")
+        profesion = self.builder.get_object("profesion")
+        muerte = self.builder.get_object("muerte")
 
-        # Establecemos la conexión con la base de datos
-        tabla = Db(host='localhost', user='conan',passwd='crom', db='DBdeConan')
-        tabla.deleteDB()
-        tabla.initDB()
+        #Cogemos los valores
+        valor_id = identificador.get_text()
+        valor_nombre= nombre.get_text()
+        valor_profesion = profesion.get_text()
+        valor_muerte = muerte.get_text()
+        #Consultamos la BD
+        resultado = self.tabla.actualizar(int(valor_id), valor_nombre,valor_profesion,valor_muerte)
+        # Informamos del proceso
+        info = self.builder.get_object("info")
+        if resultado == True:
+            info.set_label("ELEMENTO ACTUALIZADO")
+            self.onPopulateVisor()
+        else:
+            info.set_label("ELEMENTO NO ACTUALIZADO")
+    
+    def onBorrarActivate(self, *args):
+        #Conectamos con las etiquetas del GUI
+        identificador = self.builder.get_object("id")
+        #Miramos el id a obtener
+        valor_id = identificador.get_text()
+        #Consultamos la BD
+        resultado = self.tabla.borrar(int(valor_id))
+        # Informamos del proceso
+        info = self.builder.get_object("info")
+        if resultado == True:
+            info.set_label("ELEMENTO BORRADO")
+            self.onPopulateVisor()
+        else:
+            info.set_label("ELEMENTO NO BORRADO")
 
-        row1 = tabla.obtener(1)
-        row2 = tabla.obtener(2)
-        row3 = tabla.obtener(3)
-        row4 = tabla.obtener(4)
-        row5 = tabla.obtener(5)
+    def onPopulateVisor(self, *args):
+        """ Llena el visor con los campos de la Base de Datos """
 
-
-        datos ={'d1': row1,'d2':row2,'d3': row3,'d4': row4,'d5': row5,'d6': None ,'d7': None,'d8': None,'d9': None,'d10': None,}
-                        
-        return datos
-
-
-
-    def populate_entry(self):
-
-        entradas = []
-        for i in range(1,21):
-            entrada = "entry" + str(i)
-            entradas.append(self.builder.get_object(entrada))
-				
-                                        
-        datos = self.get_datos()
-
-        entradas[0].set_text(str(datos['d1'][0]))
-        entradas[1].set_text(str(datos['d1'][1]))
-        entradas[2].set_text(str(datos['d1'][2]))
-        entradas[3].set_text(str(datos['d1'][3]))
+        ids = range(0,10)
+        nombres = range(0,10)
+        profesiones = range(0,10)
+        muertes = range(0,10)
+        #Conectamos con las etiquetas del GUI
+        for i in range(1,6):
+            ids[i] = self.builder.get_object("id" + str(i))
+            nombres[i] = self.builder.get_object("nombre" + str(i))
+            profesiones[i] = self.builder.get_object("profesion" + str(i))
+            muertes[i] = self.builder.get_object("muerte" + str(i))
+            
+            #Consultamos la BD
+            registro = self.tabla.obtener(i)
+            #Actualizamos el visor
+            if registro != None:
+                ids[i].set_text(str(registro[0]))
+                nombres[i].set_text(str(registro[1]))
+                profesiones[i].set_text(str(registro[2]))
+                muertes[i].set_text(str(registro[3]))
+            else:
+                ids[i].set_text("id " + str(i) + " borrado")
+                nombres[i].set_text("---")
+                profesiones[i].set_text("---")
+                muertes[i].set_text("---")
         
-        entradas[4].set_text(str(datos['d2'][0]))
-        entradas[5].set_text(str(datos['d2'][1]))
-        entradas[6].set_text(str(datos['d2'][2]))
-        entradas[7].set_text(str(datos['d2'][3]))
-        
-        entradas[8].set_text(str(datos['d3'][0]))
-        entradas[9].set_text(str(datos['d3'][1]))
-        entradas[10].set_text(str(datos['d3'][2]))
-        entradas[11].set_text(str(datos['d3'][3]))
-        
-        entradas[12].set_text(str(datos['d4'][0]))
-        entradas[13].set_text(str(datos['d4'][1]))
-        entradas[14].set_text(str(datos['d4'][2]))
-        entradas[15].set_text(str(datos['d4'][3]))
-
-        entradas[16].set_text(str(datos['d5'][0]))
-        entradas[17].set_text(str(datos['d5'][1]))
-        entradas[18].set_text(str(datos['d5'][2]))
-        entradas[19].set_text(str(datos['d5'][3]))
 
 def main():
+
+    #La siguiente linea solo es necesaria la primera vez que se ejecute el programa, para crear la Bd
+    creaDb()
+    
     app = GUI()
     Gtk.main()
     return 0
